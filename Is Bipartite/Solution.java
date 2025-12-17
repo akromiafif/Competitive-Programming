@@ -1,3 +1,5 @@
+import java.util.*;
+
 class Solution {
     class Pieces {
         int node;
@@ -49,5 +51,31 @@ class Solution {
         }
 
         return true;
+    }
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        if (!sc.hasNextInt()) return;
+        int n = sc.nextInt();
+        sc.nextLine(); // Consume newline
+
+        int[][] graph = new int[n][];
+        for (int i = 0; i < n; i++) {
+            String line = sc.nextLine();
+            if (line.trim().isEmpty()) {
+                graph[i] = new int[0];
+            } else {
+                String[] parts = line.trim().split("\\s+");
+                graph[i] = new int[parts.length];
+                for (int j = 0; j < parts.length; j++) {
+                    graph[i][j] = Integer.parseInt(parts[j]);
+                }
+            }
+        }
+
+        Solution sol = new Solution();
+        boolean result = sol.isBipartite(graph);
+        System.out.println(result);
+        sc.close();
     }
 }
