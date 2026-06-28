@@ -24,66 +24,65 @@
  */
 public class CarsParkingBrute {
 
-    public static long minDrives(long p, long q, long[] xs, long[] ys) {
-        int n = xs.length;
-        if (n == 0) return 0;
+    public static long minDrives(long targetRow, long targetCol, long[] startRows, long[] startCols) {
+        int carCount = startRows.length;
+        if (carCount == 0) return 0;
 
         // Initial distance of each car, and the largest one.
-        long[] dist = new long[n];
+        long[] startDist = new long[carCount];
         long maxDist = 0;
-        for (int i = 0; i < n; i++) {
-            dist[i] = Math.abs(p - xs[i]) + Math.abs(q - ys[i]);
-            maxDist = Math.max(maxDist, dist[i]);
+        for (int i = 0; i < carCount; i++) {
+            startDist[i] = Math.abs(targetRow - startRows[i]) + Math.abs(targetCol - startCols[i]);
+            maxDist = Math.max(maxDist, startDist[i]);
         }
 
         // Upper bound on any distance value ever reachable: start + total budget.
         // We also cap the number of drives so a true -1 case terminates.
         long driveCap = 4 * (long) Math.sqrt(maxDist + 1.0) + 50; // generous
-        long budget = driveCap * (driveCap + 1) / 2;
-        int bound = (int) Math.min(maxDist + budget, 5_000_000L); // array size guard
-        if (bound < 1) bound = 1;
+        long totalBudget = driveCap * (driveCap + 1) / 2;
+        int maxReachableDist = (int) Math.min(maxDist + totalBudget, 5_000_000L); // array size guard
+        if (maxReachableDist < 1) maxReachableDist = 1;
 
-        // reachable[i][s] = car i can currently be exactly distance s from target.
-        boolean[][] reachable = new boolean[n][bound + 1];
-        for (int i = 0; i < n; i++) {
-            if (dist[i] <= bound) reachable[i][(int) dist[i]] = true;
+        // canReach[i][d] = car i can currently be exactly distance d from the target.
+        boolean[][] canReach = new boolean[carCount][maxReachableDist + 1];
+        for (int i = 0; i < carCount; i++) {
+            if (startDist[i] <= maxReachableDist) canReach[i][(int) startDist[i]] = true;
         }
 
-        if (allParked(reachable)) return 0; // every car already on the target
+        if (allParked(canReach)) return 0; // every car already on the target
 
-        for (long k = 1; k <= driveCap; k++) {
-            for (int i = 0; i < n; i++) {
-                reachable[i] = applyDrive(reachable[i], k, bound);
+        for (long driveLength = 1; driveLength <= driveCap; driveLength++) {
+            for (int i = 0; i < carCount; i++) {
+                canReach[i] = applyDrive(canReach[i], driveLength, maxReachableDist);
             }
-            if (allParked(reachable)) return k;
+            if (allParked(canReach)) return driveLength;
         }
         return -1; // never aligned within the cap -> impossible
     }
 
-    /** Expand one car's reachable-distance set by a single drive of length k. */
-    private static boolean[] applyDrive(boolean[] cur, long k, int bound) {
-        boolean[] next = new boolean[bound + 1];
-        for (int s = 0; s <= bound; s++) {
-            if (!cur[s]) continue;
-            // New distance s' ranges in [|s-k|, s+k] with parity of (s+k).
-            long loL = Math.abs(s - k);
-            long hiL = s + k;
-            long parityTarget = (s + k) & 1;
-            int lo = (int) Math.max(0, loL);
-            int hi = (int) Math.min(bound, hiL);
-            // Align lo up to the correct parity, then step by 2.
-            if ((lo & 1) != parityTarget) lo++;
-            for (int sp = lo; sp <= hi; sp += 2) {
-                next[sp] = true;
+    /** Expand one car's reachable-distance set by a single drive of the given length. */
+    private static boolean[] applyDrive(boolean[] current, long driveLength, int maxReachableDist) {
+        boolean[] next = new boolean[maxReachableDist + 1];
+        for (int dist = 0; dist <= maxReachableDist; dist++) {
+            if (!current[dist]) continue;
+            // New distance ranges in [|dist-driveLength|, dist+driveLength]
+            // with the parity of (dist + driveLength).
+            long parityTarget = (dist + driveLength) & 1;
+            int low = (int) Math.max(0, Math.abs(dist - driveLength));
+            int high = (int) Math.min(maxReachableDist, dist + driveLength);
+            // Align low up to the correct parity, then step by 2.
+            if ((low & 1) != parityTarget) low++;
+            for (int newDist = low; newDist <= high; newDist += 2) {
+                next[newDist] = true;
             }
         }
         return next;
     }
 
     /** True when every car can be exactly distance 0 (parked on the target). */
-    private static boolean allParked(boolean[][] reachable) {
-        for (boolean[] r : reachable) {
-            if (!r[0]) return false;
+    private static boolean allParked(boolean[][] canReach) {
+        for (boolean[] carReach : canReach) {
+            if (!carReach[0]) return false;
         }
         return true;
     }
