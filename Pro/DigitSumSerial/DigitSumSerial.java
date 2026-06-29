@@ -34,9 +34,9 @@ public class DigitSumSerial {
      * @param targetSum  required digit sum S
      * @return count of integers in [1, A] with digit sum == S, modulo 1e9+7
      */
-    public static long count(String upperBound, int targetSum) {
+    public static long count(String digits, int targetSum) {
         if (targetSum < 0) return 0;
-        int numDigits = upperBound.length();
+        int numDigits = digits.length();
         // Largest achievable digit sum is 9 * (number of digits).
         if (targetSum > 9 * numDigits) return 0;
 
@@ -48,23 +48,22 @@ public class DigitSumSerial {
                 row[0] = -1;
                 row[1] = -1;
             }
-        return countFrom(upperBound, 0, targetSum, true, memo);
+        return countFrom(digits, 0, targetSum, true, memo);
     }
 
-    private static long countFrom(String upperBound, int position, int remainingSum,
+    private static long countFrom(String digits, int position, int remainingSum,
                                   boolean isTight, long[][][] memo) {
         if (remainingSum < 0) return 0;                 // overshot the digit-sum budget
-        if (position == upperBound.length()) return remainingSum == 0 ? 1 : 0;
+        if (position == digits.length()) return remainingSum == 0 ? 1 : 0;
 
         int tightIndex = isTight ? 1 : 0;
         if (memo[position][remainingSum][tightIndex] != -1)
             return memo[position][remainingSum][tightIndex];
 
-        int maxDigit = isTight ? (upperBound.charAt(position) - '0') : 9;
+        int maxDigit = isTight ? (digits.charAt(position) - '0') : 9;
         long ways = 0;
         for (int digit = 0; digit <= maxDigit; digit++) {
-            ways = (ways + countFrom(upperBound, position + 1, remainingSum - digit,
-                                     isTight && (digit == maxDigit), memo)) % MOD;
+            ways = (ways + countFrom(digits, position + 1, remainingSum - digit, isTight && (digit == maxDigit), memo)) % MOD;
         }
 
         return memo[position][remainingSum][tightIndex] = ways;
