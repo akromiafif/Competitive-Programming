@@ -86,6 +86,7 @@ public class AppleGame {
             for (int col = 0; col < cols; col++)
                 for (int dir = 0; dir < 4; dir++)
                     best = Math.min(best, dist[row][col][apples][dir]);
+                    
         return best == INF ? -1 : best;
     }
 }

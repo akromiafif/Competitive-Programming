@@ -1,78 +1,75 @@
 public class MinSubsetDiffTest {
 
-    private static void runTestCase(String name, int[] arr) {
-        System.out.println("Running " + name + " (N = " + arr.length + ")");
-        
-        // Test Brute Force
-        System.out.println("--- Testing Brute Force ---");
-        long startTime = System.currentTimeMillis();
-        int ansBrute = MinSubsetDiffBrute.minDiff(arr);
-        long endTime = System.currentTimeMillis();
-        long durationBrute = endTime - startTime;
-        
-        System.out.println("Answer: " + ansBrute);
-        System.out.println("Execution Time: " + durationBrute + " ms");
-        if (durationBrute > 1000) {
-            System.out.println("WARNING: Exceeded 1s time limit!");
-        } else {
-            System.out.println("Status: PASSED (Under 1s)");
+    /** Runs one case through both solutions and compares the gap. */
+    private static void runTestCase(String name, int[] arr, boolean runBrute, int expected) {
+        System.out.println("Running " + name + " (N=" + arr.length + ")");
+
+        int brute = 0;
+        long t1 = 0;
+        if (runBrute) {
+            long s = System.currentTimeMillis();
+            brute = MinSubsetDiffBrute.minDiff(arr);
+            t1 = System.currentTimeMillis() - s;
         }
 
-        // Test DP
-        System.out.println("--- Testing DP ---");
-        long startTimeDP = System.currentTimeMillis();
-        int ansDP = MinSubsetDiff.minSubsetSumDifference(arr);
-        long endTimeDP = System.currentTimeMillis();
-        long durationDP = endTimeDP - startTimeDP;
-        
-        System.out.println("Answer: " + ansDP);
-        System.out.println("Execution Time: " + durationDP + " ms");
-        if (durationDP > 1000) {
-            System.out.println("WARNING: Exceeded 1s time limit!");
-        } else {
-            System.out.println("Status: PASSED (Under 1s)");
+        long s = System.currentTimeMillis();
+        int dp = MinSubsetDiff.minSubsetSumDifference(arr);
+        long t2 = System.currentTimeMillis() - s;
+
+        if (runBrute) {
+            System.out.println("  Brute Force : diff=" + brute + "  (" + t1 + " ms)");
         }
-        
-        System.out.println("=".repeat(40));
+        System.out.println("  Subset DP   : diff=" + dp + "  (" + t2 + " ms)");
+
+        boolean correct = true;
+        if (runBrute) correct = (brute == dp);
+        if (expected != Integer.MIN_VALUE) {
+            correct = correct && (dp == expected);
+            System.out.println("  Expected    : " + expected);
+        }
+        System.out.println("  Status      : " + (correct ? "PASSED ✓" : "FAILED ✗"));
+        System.out.println("-".repeat(50));
     }
 
-    private static int[] generateRandomArray(int n, int maxVal) {
+    /** Deterministic reproducible values in [1, maxVal]. */
+    private static int[] randomArray(int n, int maxVal, long seed) {
         int[] arr = new int[n];
+        long state = seed;
         for (int i = 0; i < n; i++) {
-            arr[i] = (int)(Math.random() * maxVal) + 1;
+            state = state * 6364136223846793005L + 1442695040888963407L;
+            arr[i] = (int) Math.floorMod(state >>> 16, maxVal) + 1;
         }
         return arr;
     }
 
     public static void main(String[] args) {
-        System.out.println("=== Simple Test Cases ===");
-        // Simple Test Case 1 (from example)
-        int[] simple1 = {3, 3, 7, 3, 1};
-        runTestCase("Simple Test Case 1", simple1);
+        System.out.println("=== Simple Test Cases (Brute vs Subset DP) ===");
+        // {3,3,7,3,1} total 17 (odd): best split 9 vs 8 -> gap 1.
+        runTestCase("Simple 1 (3 3 7 3 1)", new int[]{3, 3, 7, 3, 1}, true, 1);
+        // {1,2,3,4} total 10: 5 vs 5 -> gap 0.
+        runTestCase("Simple 2 (1 2 3 4)", new int[]{1, 2, 3, 4}, true, 0);
+        // Single element: one group is empty -> gap is that element.
+        runTestCase("Simple 3 (single)", new int[]{10}, true, 10);
+        // Equal pair: perfectly balanced.
+        runTestCase("Simple 4 (equal pair)", new int[]{8, 8}, true, 0);
 
-        // Simple Test Case 2
-        int[] simple2 = {1, 2, 3, 4};
-        runTestCase("Simple Test Case 2", simple2);
+        System.out.println("=== Complex Test Cases (Brute vs Subset DP correctness) ===");
+        // N kept <= 19 so the O(2^n) brute oracle stays fast.
+        for (int i = 1; i <= 6; i++) {
+            int n = 16 + (i % 4);                  // 16..19
+            int[] arr = randomArray(n, 1000, 1234L * i + 7);
+            runTestCase("Complex " + i, arr, true, Integer.MIN_VALUE);
+        }
 
-        System.out.println("=== Complex Test Cases ===");
-        // For O(2^N) brute force, N around 25-27 will take noticeable time but stay under 1s.
-        // Complex Test Case 1
-        int[] complex1 = generateRandomArray(25, 1000);
-        runTestCase("Complex Test Case 1", complex1);
-
-        // Complex Test Case 2
-        int[] complex2 = generateRandomArray(26, 1000);
-        runTestCase("Complex Test Case 2", complex2);
-
-        // Complex Test Case 3
-        int[] complex3 = generateRandomArray(27, 1000);
-        runTestCase("Complex Test Case 3", complex3);
-
-        System.out.println("=== Extreme Test Case (Demonstrating Brute Force Failure) ===");
-        // N = 31 will do over 2 billion recursive calls for Brute Force.
-        // It will take several seconds (exceeding the 1s limit), 
-        // whereas the DP solution will still finish in ~4 milliseconds!
-        int[] extreme = generateRandomArray(31, 1000);
-        runTestCase("Extreme Test Case", extreme);
+        System.out.println("=== Extreme Test Case (Subset DP only, large sum) ===");
+        // N = 200, values up to 1000 -> total ~ 2*10^5. DP is O(N*total) ~ 4*10^7,
+        // which is instant; the O(2^N) brute would be utterly hopeless here.
+        int[] big = randomArray(200, 1000, 999L);
+        System.out.println("Running Extreme (N=200, sum up to ~200,000)");
+        long s = System.currentTimeMillis();
+        int dp = MinSubsetDiff.minSubsetSumDifference(big);
+        long dur = System.currentTimeMillis() - s;
+        System.out.println("  Subset DP: diff=" + dp + "  (" + dur + " ms)");
+        System.out.println("  Status: " + (dur < 1000 ? "PASSED (Under 1s)" : "WARNING: Exceeded 1s!"));
     }
 }

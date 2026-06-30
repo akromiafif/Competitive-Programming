@@ -13,7 +13,7 @@ public class DigitSumSerialTest {
         }
 
         long start = System.currentTimeMillis();
-        long dp = DigitSumSerial.count(Long.toString(a), s);
+        long dp = DigitSumSerial.count(Long.toString(a), 0, s, true, null);
         long t2 = System.currentTimeMillis() - start;
 
         if (runBrute) {
@@ -57,7 +57,7 @@ public class DigitSumSerialTest {
         int s = 450;
         System.out.println("Running Extreme (A = 100 nines, S = " + s + ")");
         long start = System.currentTimeMillis();
-        long dp = DigitSumSerial.count(bigA, s);
+        long dp = DigitSumSerial.count(bigA, 0, s, true, null);
         long dur = System.currentTimeMillis() - start;
         System.out.println("  Digit DP: count=" + dp + "  (" + dur + " ms)");
         System.out.println("  Status: " + (dur < 1000 ? "PASSED (Under 1s)" : "WARNING: Exceeded 1s!"));
