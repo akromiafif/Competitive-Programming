@@ -1,97 +1,56 @@
 /**
- * Cars Parking – Optimal Solution (math: triangular numbers + parity)
+ * Cars Parking – Math (triangular numbers + parity)
  *
  * Problem:
- *   An M x M matrix holds N cars at starting cells (xi, yi). Every car must end
- *   up parked at the SAME target cell (p, q). All cars move SIMULTANEOUSLY: on
- *   drive #1 each car moves EXACTLY 1 unit of Manhattan distance, on drive #2
- *   EXACTLY 2 units, ... on drive #k EXACTLY k units. Paths may overlap and a
- *   car may walk back and forth to "burn" distance. Find the minimum number of
- *   drives T after which EVERY car sits on (p, q), or -1 if impossible.
+ *   N cars on an M x M grid must all reach the same target (p, q). They move
+ *   together: on drive k every car moves EXACTLY k Manhattan steps (it may
+ *   zig-zag to burn distance). Find the minimum number of drives to park them
+ *   all, or -1 if impossible.
  *
- * Key Insight:
- *   Let dist_i = Manhattan distance |p - xi| + |q - yi| of car i to the target.
- *   After T drives a car has spent a total budget
- *         budget(T) = 1 + 2 + ... + T = T(T+1)/2.
- *   A single car lands exactly on the target after T drives  <=>
- *         (1) budget(T) >= dist_i           (enough total travel to cover the gap)
- *         (2) (budget(T) - dist_i) is even  (the surplus is burned moving
- *                                            out-and-back, which costs an even
- *                                            amount)
+ * Insight to memorize:
+ *   Let dist_i = |p - xi| + |q - yi|. After T drives the travel budget is
+ *       budget(T) = 1 + 2 + ... + T = T(T+1)/2.
+ *   A car parks exactly when  budget(T) >= dist_i  AND  budget(T) - dist_i is
+ *   even (the surplus is burned by stepping out-and-back, which costs 2 each).
+ *   Since all cars share T, every dist_i must have the SAME parity, else -1.
  *
- *   Because every car shares the same T (they move together), condition (2)
- *   forces budget(T) ≡ dist_i (mod 2) for ALL i simultaneously. That can only
- *   hold if every dist_i already has the SAME parity; otherwise the answer is -1.
+ *   So: let maxDist = max dist_i.
+ *     1) smallest T with budget(T) >= maxDist   (≈ sqrt(2*maxDist), then fix up)
+ *     2) bump T while budget(T)'s parity != the cars' parity  (at most +2)
  *
- *   When the parities agree, let maxDist = max dist_i. We need the smallest T
- *   with budget(T) >= maxDist and budget(T) ≡ maxDist (mod 2). Find the smallest
- *   T0 with budget(T0) >= maxDist, then nudge T0 up by 0, 1, or 2 to fix the
- *   parity. (Triangular numbers have parity pattern 0,1,1,0 repeating with
- *   period 4, so any three consecutive T values contain both parities — at most
- *   +2 is ever needed.)
- *
- * Complexity: O(N) to scan the cars + O(log maxDist) binary search for T0.
- *   Constant work afterwards, so it answers M up to ±10^17 (maxDist up to
- *   ~4*10^17) instantly.
- *
- * Overflow note: maxDist <= 4*10^17 and the matching T is ~9*10^8, so budget(T)
- *   <= ~4*10^17 stays well within signed 64-bit range. The binary search caps T
- *   at 2*10^9, where T(T+1)/2 ~ 2*10^18 still fits in a long.
+ * Complexity: O(N).  Handles M up to ±10^17 (maxDist ~ 4*10^17) instantly.
  */
 public class CarsParking {
 
     /**
-     * @param targetRow  target cell row  (p)
-     * @param targetCol  target cell column (q)
-     * @param startRows  car start rows    (startRows.length == startCols.length == N)
-     * @param startCols  car start columns
-     * @return minimum number of drives to park all cars on the target, or -1 if impossible
+     * @param targetRow target row p
+     * @param targetCol target column q
+     * @param startRows car start rows    (same length as startCols)
+     * @param startCols car start columns
+     * @return minimum number of drives to park all cars, or -1 if impossible
      */
     public static long minDrives(long targetRow, long targetCol, long[] startRows, long[] startCols) {
         int carCount = startRows.length;
         if (carCount == 0) return 0;
 
         long maxDist = 0;
-        long sharedParity = -1; // parity shared by all cars (-1 = not yet seen)
-
+        long sharedParity = -1; // parity every car must share (-1 = not seen yet)
         for (int i = 0; i < carCount; i++) {
             long dist = Math.abs(targetRow - startRows[i]) + Math.abs(targetCol - startCols[i]);
-            long parity = dist & 1;
-            if (sharedParity == -1) {
-                sharedParity = parity;
-            } else if (sharedParity != parity) {
-                return -1; // two cars need opposite parities -> never aligned
-            }
-            if (dist > maxDist) maxDist = dist;
+            if (sharedParity == -1) sharedParity = dist & 1;
+            else if (sharedParity != (dist & 1)) return -1; // mixed parity -> impossible
+            maxDist = Math.max(maxDist, dist);
         }
 
-        // Smallest baseDrives with budget(baseDrives) = baseDrives(baseDrives+1)/2 >= maxDist.
-        long baseDrives = smallestDrivesToCover(maxDist);
+        // Smallest `drives` with budget(drives) = drives*(drives+1)/2 >= maxDist.
+        // Estimate, then correct any sqrt rounding with O(1) steps (exact even
+        // at ~4*10^17).
+        long drives = (long) Math.sqrt(2.0 * maxDist);
+        while (drives * (drives + 1) / 2 < maxDist) drives++;
+        while (drives > 0 && (drives - 1) * drives / 2 >= maxDist) drives--;
 
-        // Nudge up to fix budget(T) parity to match the (shared) car parity.
-        for (long extra = 0; extra <= 2; extra++) {
-            long drives = baseDrives + extra;
-            long budget = drives * (drives + 1) / 2;
-            if (budget >= maxDist && (budget & 1) == sharedParity) {
-                return drives;
-            }
-        }
-        // Unreachable in practice (a parity-fixing T always exists within +2).
-        throw new IllegalStateException("no valid drive count found");
-    }
-
-    /** Smallest drives with drives(drives+1)/2 >= target, via binary search (no floating point). */
-    private static long smallestDrivesToCover(long target) {
-        if (target <= 0) return 0;
-        long low = 0, high = 2_000_000_000L; // budget(high) ~ 2*10^18 covers any reachable target
-        while (low < high) {
-            long mid = low + (high - low) / 2;
-            if (mid * (mid + 1) / 2 >= target) {
-                high = mid;
-            } else {
-                low = mid + 1;
-            }
-        }
-        return low;
+        // Bump until the budget's parity matches the cars' parity (needs +0/+1/+2).
+        while (((drives * (drives + 1) / 2) & 1) != sharedParity) drives++;
+        return drives;
     }
 }

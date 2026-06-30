@@ -80,9 +80,13 @@ public class SoldiersTest {
         int[][] mid = randomTree(2000, 100, 4242L);
         runTestCase("Medium (n=2000, random)", mid[0], mid[1], true, Long.MIN_VALUE);
 
-        System.out.println("=== Extreme Test Cases (Iterative only, large N) ===");
+        System.out.println("=== Extreme Test Cases (large N, shallow recursion) ===");
+        // The real constraints are tiny (N <= 500, depth <= 100), so the simple
+        // recursive DFS is plenty. These big cases just show it stays fast. They
+        // are kept SHALLOW on purpose — a million-deep chain would overflow the
+        // call stack, which is the one trade-off of the recursive version.
 
-        // Wide star: one root with N-1 leaf children (kills the O(deg^2) brute).
+        // Wide star: one root with N-1 leaf children (depth 1, recursion-safe).
         int starN = 1_000_000;
         int[] starParent = new int[starN];
         int[] starSoldiers = new int[starN];
@@ -99,20 +103,14 @@ public class SoldiersTest {
         System.out.println("Star (n=1,000,000): remaining=" + starRem + "  (" + d1 + " ms)  "
                 + (d1 < 1000 ? "PASSED (Under 1s)" : "WARNING: >1s!"));
 
-        // Deep chain: a path of a million nodes (would overflow a recursive DFS).
-        int chainN = 1_000_000;
-        int[] chainParent = new int[chainN];
-        int[] chainSoldiers = new int[chainN];
-        chainParent[0] = -1;
-        for (int i = 0; i < chainN; i++) {
-            chainSoldiers[i] = 50;
-            if (i >= 1) chainParent[i] = i - 1;
-        }
+        // Large random tree: parent[i] in [0,i-1] gives expected depth ~ log(N),
+        // so recursion stays shallow.
+        int randN = 300_000;
+        int[][] big = randomTree(randN, 100, 24680L);
         long s2 = System.currentTimeMillis();
-        long chainRem = Soldiers.minRemaining(chainParent, chainSoldiers);
+        long bigRem = Soldiers.minRemaining(big[0], big[1]);
         long d2 = System.currentTimeMillis() - s2;
-        // Each node has exactly one child, so every level keeps its single child -> sum stays.
-        System.out.println("Chain (n=1,000,000): remaining=" + chainRem + "  (" + d2 + " ms)  "
+        System.out.println("Random (n=300,000): remaining=" + bigRem + "  (" + d2 + " ms)  "
                 + (d2 < 1000 ? "PASSED (Under 1s)" : "WARNING: >1s!"));
     }
 }

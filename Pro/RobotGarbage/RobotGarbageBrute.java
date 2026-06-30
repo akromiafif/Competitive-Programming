@@ -1,50 +1,50 @@
-import java.util.Arrays;
-
 /**
- * Robot Garbage – Brute Force (memoized recurrence)
+ * Robot Garbage – Brute Force (try every subset of deploy positions)
  *
- * Idea (the same recurrence as the reference C++):
- *   Scan indices left to right. At each index we either:
- *     - deploy a NEW robot here  -> pay deployCost, and this index becomes the
- *       new reference point, or
- *     - let the CURRENT robot (last deployed at `lastDeploy`) keep rolling -> the
- *       garbage here has waited (index - lastDeploy) time units, costing
- *       (index - lastDeploy) * garbage[index].
- *   The first robot is forced at the first non-zero index. We memoize on
- *   (index, lastDeploy) and take the minimum.
+ * Idea:
+ *   The first robot is forced at the first non-zero index `start`. For every
+ *   later index we independently decide "deploy a robot here or not", i.e. we
+ *   enumerate all 2^(positions after start) subsets. For each choice we just add
+ *   up the real cost:
+ *       - deployCost for every robot deployed, plus
+ *       - (index - lastDeployedBefore it) * garbage[index] for every index that
+ *         is NOT a deploy point (the wait charged to its serving robot).
+ *   Take the cheapest over all subsets.
  *
- * This makes no clever observation (no prefix sums, no hull) — it just tries
- * both choices at every step — which is exactly why it is a trustworthy oracle
- * for the Convex-Hull DP on small inputs.
+ * No DP, no cleverness — it literally prices every possible deployment plan —
+ * which is exactly why it is a trustworthy oracle for the DP on small inputs.
  *
- * Complexity: O(n^2) states. Fine for n up to a couple thousand, hopeless beyond.
+ * Complexity: O(2^n * n). Only usable for small n (~<= 18).
  */
 public class RobotGarbageBrute {
 
     public static long minCost(long[] garbage, long deployCost) {
         int n = garbage.length;
 
-        int firstNonZero = 0;
-        while (firstNonZero < n && garbage[firstNonZero] == 0) firstNonZero++;
-        if (firstNonZero == n) return 0; // nothing to clean
+        int start = 0;
+        while (start < n && garbage[start] == 0) start++;
+        if (start == n) return 0; // nothing to clean
 
-        // memo[index][lastDeploy], sentinel = "not computed".
-        long[][] memo = new long[n + 1][n + 1];
-        for (long[] row : memo) Arrays.fill(row, Long.MIN_VALUE);
+        int optional = n - 1 - start;          // indices start+1 .. n-1 each toggle
+        long best = Long.MAX_VALUE;
 
-        return deployCost + solve(firstNonZero + 1, firstNonZero, garbage, deployCost, memo);
-    }
+        for (int mask = 0; mask < (1 << optional); mask++) {
+            long cost = 0;
+            int lastDeploy = start;            // first robot is at start
+            int robots = 1;
 
-    private static long solve(int index, int lastDeploy, long[] garbage,
-                              long deployCost, long[][] memo) {
-        int n = garbage.length;
-        if (index == n) return 0;
-        if (memo[index][lastDeploy] != Long.MIN_VALUE) return memo[index][lastDeploy];
-
-        long deployNew = deployCost + solve(index + 1, index, garbage, deployCost, memo);
-        long keepRolling = (long) (index - lastDeploy) * garbage[index]
-                         + solve(index + 1, lastDeploy, garbage, deployCost, memo);
-
-        return memo[index][lastDeploy] = Math.min(deployNew, keepRolling);
+            for (int i = start + 1; i < n; i++) {
+                int bit = i - (start + 1);
+                if ((mask & (1 << bit)) != 0) { // deploy a robot at i
+                    lastDeploy = i;
+                    robots++;
+                } else {                        // current robot rolls over i
+                    cost += (long) (i - lastDeploy) * garbage[i];
+                }
+            }
+            cost += (long) robots * deployCost;
+            best = Math.min(best, cost);
+        }
+        return best;
     }
 }

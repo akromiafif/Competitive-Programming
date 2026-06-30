@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(java Main)",
+      "Bash(java StonesRemovalTest)",
+      "Bash(java AppleGameTest)",
+      "Bash(java SoldiersTest)",
+      "Bash(java OptimalDTest)"
+    ]
+  }
+}
